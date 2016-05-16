@@ -35,6 +35,8 @@ namespace NSLU2Image {
 		virtual ~Image() {
 		}
 
+		virtual void GetBoundaries(int &start, int &end) = 0;
+
 		/* Get the next block of bytes, returns an address and length.
 		 */
 		virtual void GetBytes(char *buffer, size_t buffer_length,

@@ -95,7 +95,7 @@ namespace NSLU2Upgrade {
 
 	class RealDoUpgrade : public DoUpgrade {
 	public:
-		RealDoUpgrade(Wire *w, Progress *p, bool r) :
+		RealDoUpgrade(Wire *w, Progress *p, bool r, int start, int end) :
 			wire(w), progress(p), sequenceError(-1), reprogram(r),
 			lastType(NSLU2Protocol::InvalidType) {
 			if (reprogram) {
@@ -105,6 +105,8 @@ namespace NSLU2Upgrade {
 				NSLU2Protocol::UpgradeStartPacket packet(seq);
 				wire->Send(packet.PacketBuffer(), packet.PacketLength());
 			}
+			BaseAddress = start;
+			EndAddress = end;
 		}
 
 		virtual ~RealDoUpgrade() {
@@ -205,8 +207,8 @@ namespace NSLU2Upgrade {
 
 	};
 
-	DoUpgrade *DoUpgrade::MakeDoUpgrade(Wire *wire, Progress *progress, bool reprogram) {
-		return new RealDoUpgrade(wire, progress, reprogram);
+	DoUpgrade *DoUpgrade::MakeDoUpgrade(Wire *wire, Progress *progress, bool reprogram, int start, int end) {
+		return new RealDoUpgrade(wire, progress, reprogram, start, end);
 	}
 };
 
@@ -421,12 +423,17 @@ void NSLU2Upgrade::RealDoUpgrade::Upgrade(int address, int length, const char *b
 	/* Simple upgrade programs only the addresses beyound BaseAddress,
 	 * reprogram overwrites the whole flash.
 	 */
-	if (!reprogram && address < NSLU2Protocol::BaseAddress) {
+	if (!reprogram && address < BaseAddress) {
 		length += address;
-		if (length <= NSLU2Protocol::BaseAddress)
+		if (length <= BaseAddress)
 			return; /* nothing to do. */
-		address = NSLU2Protocol::BaseAddress;
+		address = BaseAddress;
 		length -= address;
+	}
+	if (!reprogram && address + length > EndAddress) {
+		if (address >= EndAddress)
+			return; /* nothing to do. */
+		length -= EndAddress - address;
 	}
 
 #if 1
@@ -495,11 +502,11 @@ void NSLU2Upgrade::RealDoUpgrade::Verify(int address, int length, const char *bu
 		Finish();
 
 	/* Verify never verifies anything below BaseAddress. */
-	if (address < NSLU2Protocol::BaseAddress) {
+	if (address < BaseAddress) {
 		length += address;
-		if (length <= NSLU2Protocol::BaseAddress)
+		if (length <= BaseAddress)
 			return; /* nothing to do. */
-		address = NSLU2Protocol::BaseAddress;
+		address = BaseAddress;
 		length -= address;
 	}
 

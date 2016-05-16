@@ -161,15 +161,19 @@ namespace UpSlug2 {
 			Timedout,   /* *: timeout on a sent packet for this address. */
 			NumberOfStates
 		} Status;
-		
+		int BaseAddress;
+		int EndAddress;
+
 		/* reprogram says whether this is a full reprogram (the entire
 		 * flash will be erased) or not (the leading, RedBoot, SysConf
 		 * partitions are not erased).
 		 * resolution should be about 6 for a command line (character)
 		 * progress bar and 8 for a GUI (pixel) progress bar.
 		 */
-		ProgressBar(bool r) :
+		ProgressBar(bool r, int start, int end) :
 			reprogram(r), timeout(false), retransmit(false), status(Init) {
+			BaseAddress = start;
+			EndAddress = end;
 		}
 
 		/* lowWaterMark..(highWaterMark-1) bytes are in state 'st',
@@ -179,8 +183,8 @@ namespace UpSlug2 {
 			/* These initial settings cover the majority of cases
 			 * correctly.
 			 */
-			lowWaterMark = reprogram ? 0 : NSLU2Protocol::BaseAddress;
-			highWaterMark = status >= st ? NSLU2Protocol::FlashSize-1 : 0;
+			lowWaterMark = reprogram ? 0 : BaseAddress;
+			highWaterMark = status >= st ? EndAddress-1 : 0;
 			switch (st) {
 			case Init:
 				/* Everything has an initial value... */
@@ -286,9 +290,9 @@ namespace UpSlug2 {
 	 */
 	template <int characters> class CharacterProgressBar : public ProgressBar {
 	public:
-		CharacterProgressBar(bool reprogram, int n, const char ind[NumberOfStates] = 0) :
+		CharacterProgressBar(bool reprogram, int n, int start, int end, const char ind[NumberOfStates] = 0) :
 			numberOfCharacters(n > characters || n < 1 ? characters : n),
-			ProgressBar(reprogram) {
+			ProgressBar(reprogram, start, end) {
 			if (ind)
 				std::memcpy(indicators, ind, NumberOfStates);
 			else

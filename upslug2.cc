@@ -21,8 +21,8 @@
 
 class ProgressBar : public UpSlug2::CharacterProgressBar<80> {
 public:
-	ProgressBar(bool reprogram, const unsigned char *t) :
-		UpSlug2::CharacterProgressBar<80>(reprogram, 64),
+	ProgressBar(bool reprogram, const unsigned char *t, int start, int end) :
+		UpSlug2::CharacterProgressBar<80>(reprogram, 64, start, end),
 		target(t), displayed(false), ticker(0) {
 	}
 
@@ -95,7 +95,7 @@ private:
 			else if (seen == -1) {
 				seen = 0;
 				if (!reprogram)
-					sent -= NSLU2Protocol::BaseAddress;
+					sent -= NSLU2Protocol::FlashSize - (EndAddress - BaseAddress);
 			} else
 				sent -= seen;
 
@@ -423,7 +423,7 @@ int main(int argc, char **argv) {
 { 0,                                                            0,                 0,  0  }
 	};
 
-	do switch (getopt_long(argc, argv, "he:d:t:f:vUni:Ck:r:R:j:p:P:T:F:E:", options, 0)) {
+	do switch (getopt_long(argc, argv, "he:d:t:f:vUni:Ck:r:R:j:op:P:T:F:E:", options, 0)) {
 	case  -1: if (optind < argc) {
 			  std::fprintf(stderr, "%s: unrecognised option\n", argv[optind]);
 			  std::exit(1);
@@ -523,16 +523,22 @@ done:
 
 		if (mac && got_kernel) {
 			Pointer<NSLU2Upgrade::Wire> wire(NSLU2Upgrade::Wire::MakeWire(device, fromMac, mac, euid));
-			ProgressBar progress(reprogram, mac);
+			int BaseAddress = NSLU2Protocol::BaseAddress;
+			int EndAddress = NSLU2Protocol::FlashSize;
 
 			if (full_image) { /* complete image. */
 				/* The full image case allows a complete reprogram. */
+				NSLU2Image::Image *image_p;
 				Pointer<NSLU2Image::Image> image(
 						NSLU2Image::Image::MakeImage(
 							reprogram, full_image));
+				image_p = image.p;
+				image_p->GetBoundaries(BaseAddress, EndAddress);
+				ProgressBar progress(reprogram, mac, BaseAddress, EndAddress);
 				Pointer<NSLU2Upgrade::DoUpgrade> upgrade(
 					NSLU2Upgrade::DoUpgrade::MakeDoUpgrade(
-						wire.p, &progress, reprogram));
+						wire.p, &progress, reprogram,
+						BaseAddress, EndAddress));
 				progress.FirstDisplay();
 				Upgrade(upgrade.p, image.p, no_upgrade, no_verify);
 				progress.EndDisplay();
@@ -551,9 +557,11 @@ done:
 							fis_payload,
 							product_id, protocol_id,
 							firmware_version, extra_version));
+				ProgressBar progress(reprogram, mac, BaseAddress, EndAddress);
 				Pointer<NSLU2Upgrade::DoUpgrade> upgrade(
 					NSLU2Upgrade::DoUpgrade::MakeDoUpgrade(
-						wire.p, &progress, false));
+						wire.p, &progress, false,
+						BaseAddress, EndAddress));
 				progress.FirstDisplay();
 				Upgrade(upgrade.p, image.p, no_upgrade, no_verify);
 				progress.EndDisplay();

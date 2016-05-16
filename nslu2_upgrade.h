@@ -206,6 +206,8 @@ namespace NSLU2Upgrade {
 
 	class DoUpgrade {
 	public:
+		int BaseAddress;
+		int EndAddress;
 		virtual ~DoUpgrade() {
 		}
 
@@ -228,7 +230,7 @@ namespace NSLU2Upgrade {
 		virtual void Reboot(void) = 0;
 			/* Reboot the NSLU2. */
 
-		static DoUpgrade *MakeDoUpgrade(Wire *wire, Progress *progress, bool reprogram);
+		static DoUpgrade *MakeDoUpgrade(Wire *wire, Progress *progress, bool reprogram, int start, int end);
 			/* Instantiate a real DoUpgrade, returns NULL if the object
 			 * cannot be instantiated.
 			 *

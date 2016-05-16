@@ -54,28 +54,44 @@ namespace NSLU2Image {
 				int &address, int &length) {
 			address = image.tellg();
 			length = buffer_length;
-			if (address+length > NSLU2Protocol::FlashSize)
-				length = NSLU2Protocol::FlashSize-address;
+			if (address+length > EndAddress)
+				length = EndAddress-address;
 			if (length > 0)
 				SafeRead(&image, buffer, length, "image (read)");
+		}
+
+		virtual void GetBoundaries(int &start, int &end)
+		{
+			start = BaseAddress;
+			end = EndAddress;
 		}
 
 		/* Rewind to the start of the image (or the Kernel if not
 		 * doing a complete reprogram).
 		 */
 		virtual void Rewind(void) {
-			SafeSeek(&image, reprogram ? 0 : NSLU2Protocol::BaseAddress,
+			SafeSeek(&image, reprogram ? 0 : BaseAddress,
 					"image (seek)");
 		}
 
 	private:
+		int BaseAddress;
+		int EndAddress;
+
 		/* Validate that this really is an image file. */
 		void Validate(const char *i) {
 			char signature[8];
 
 			SafeSeek(&image, -8, i, std::ios::end);
 			SafeRead(&image, signature, 8, i);
-			if (memcmp(signature, "eRcOmM", 6) != 0)
+
+			if (memcmp(signature, "eRcOmM", 6) == 0) {
+				BaseAddress = NSLU2Protocol::BaseAddress;
+				EndAddress = NSLU2Protocol::FlashSize;
+			} else if (memcmp(signature + 1, "sErCoMm", 7) == 0) {
+				BaseAddress = 0;
+				EndAddress = NSLU2Protocol::FlashSize - 0x40000;
+			} else
 				throw NSLU2Image::FileError(DataError, i, 0);
 		}
 
@@ -91,6 +107,12 @@ namespace NSLU2Image {
 			unsigned short product_id, unsigned short protocol_id,
 			unsigned short firmware_version, unsigned short extra_version);
 		virtual ~SynthesiseImage() {
+		}
+
+		void GetBoundaries(int &start, int &end)
+		{
+			start = NSLU2Protocol::BaseAddress;
+			end = NSLU2Protocol::FlashSize;
 		}
 
 		/* Get the next block of bytes, returns an address and length, false if
